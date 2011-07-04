@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Net-SFTP-Foreign-Backend-Net_SSH2
-version:            0.03
+version:            0.04
 abstract:           ~
 author:
     - Salvador Fandino <sfandino@yahoo.com>
@@ -11,13 +11,13 @@ configure_requires:
 build_requires:
     ExtUtils::MakeMaker:  0
 requires:
-    Net::SFTP::Foreign:  1.56_05
-    Net::SSH2:           0.20
+    Net::SFTP::Foreign:  1.67
+    Net::SSH2:           0.38
 no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.55_02
+generated_by:       ExtUtils::MakeMaker version 6.56
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4

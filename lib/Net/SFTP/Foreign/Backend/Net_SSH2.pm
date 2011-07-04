@@ -1,6 +1,6 @@
 package Net::SFTP::Foreign::Backend::Net_SSH2;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use strict;
 use warnings;
@@ -44,7 +44,8 @@ sub _conn_lost {
 
 my %auth_arg_map = qw(host hostname
 		      user username
-		      local_user local_username);
+		      local_user local_username
+                      key_path privatekey);
 
 sub _init_transport {
     my ($self, $sftp, $opts) = @_;
@@ -60,8 +61,13 @@ sub _init_transport {
 	for (qw(rank username password publickey privatekey hostname
 		local_username interact cb_keyboard cb_password user host)) {
 	    my $map = $auth_arg_map{$_} || $_;
+            next if defined $auth_args{$map};
 	    $auth_args{$map} = delete $opts->{$_} if exists $opts->{$_}
 	}
+
+        if (defined $auth_args{privatekey} and not defined $auth_args{publickey}) {
+            $auth_args{publickey} = "$auth_args{privatekey}.pub";
+        }
 
 	my $host = $auth_args{hostname};
 	defined $host or croak "sftp target host not defined";
@@ -102,6 +108,7 @@ sub _sysreadn {
 	    $self->_conn_lost($sftp, "read failed");
 	    return undef;
 	}
+        $debug and $debug & 32 and _debug "$read bytes read from SSH channel";
 	$$bin .= $buf;
     }
     return $n;
@@ -122,6 +129,7 @@ sub _do_io {
 	    $self->_conn_lost($sftp, "write failed");
 	    return undef;
 	}
+        $debug and $debug & 32 and _debug("$written bytes written to SSH channel");
 	substr($$bout, 0, $written, "");
     }
 
@@ -138,6 +146,8 @@ sub _do_io {
     }
     $self->_sysreadn($sftp, $len);
 }
+
+sub _after_init {};
 
 1;
 
@@ -238,7 +248,7 @@ is rather limited and its performance very poor.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2009-2010 by Salvador FandiE<ntilde>o (sfandino@yahoo.com).
+Copyright (c) 2009-2011 by Salvador FandiE<ntilde>o (sfandino@yahoo.com).
 
 All rights reserved. This program is free software; you can
 redistribute it and/or modify it under the same terms as Perl itself.
