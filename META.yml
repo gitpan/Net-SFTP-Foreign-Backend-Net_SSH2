@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Net-SFTP-Foreign-Backend-Net_SSH2
-version:            0.04
+version:            0.05
 abstract:           ~
 author:
     - Salvador Fandino <sfandino@yahoo.com>
