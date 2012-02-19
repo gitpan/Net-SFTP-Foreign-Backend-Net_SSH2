@@ -1,6 +1,6 @@
 package Net::SFTP::Foreign::Backend::Net_SSH2;
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use strict;
 use warnings;
@@ -52,6 +52,7 @@ sub _init_transport {
     my ($self, $sftp, $opts) = @_;
     my $ssh2 = delete $opts->{ssh2};
     if (defined $ssh2) {
+        $debug and $debug & 131072 and $ssh2->debug(1);
 	unless ($ssh2->auth_ok) {
 	    $sftp->_conn_failed("Net::SSH2 object is not authenticated");
 	    return;
@@ -83,6 +84,8 @@ sub _init_transport {
         }
 
 	$ssh2 = $self->{_ssh2} = Net::SSH2->new();
+        $debug and $debug & 131072 and $ssh2->debug(1);
+
 	unless ($ssh2->connect($host, $port)) {
 	    $self->_conn_failed($sftp, "connection to remote host $host failed");
 	    return;
@@ -93,6 +96,7 @@ sub _init_transport {
 	    return;
 	}
     }
+
     my $channel = $self->{_channel} = $ssh2->channel;
     unless (defined $channel) {
 	$self->_conn_failed($sftp, "unable to create new session channel");
@@ -113,15 +117,19 @@ sub _sysreadn {
 	my $buf = '';
 	my $read = $channel->read($buf, $n - $len);
 	unless (defined $read) {
-            $debug and $debug & 32 and _debug "read error: EAGAIN, delaying before retrying";
             if ($self->{_ssh2}->error == Net::SSH2::LIBSSH2_ERROR_EAGAIN()) {
+                $debug and $debug & 32 and _debug "read error: EAGAIN, delaying before retrying";
                 sleep 0.01;
                 redo;
             }
-	    $self->_conn_lost($sftp, "read failed");
+	    $self->_conn_lost($sftp, "read failed: " . $self->{_ssh2}->error);
 	    return undef;
 	}
-        $debug and $debug & 32 and _debug "$read bytes read from SSH channel";
+        $sftp->{_read_total} += $read;
+        if ($debug and $debug & 32) {
+            _debug "$read bytes read from SSH channel, total $sftp->{_read_total}";
+            $debug & 2048 and $read and _hexdump($buf);
+        }
 	$$bin .= $buf;
     }
     return $n;
@@ -144,10 +152,14 @@ sub _do_io {
                 sleep 0.01;
                 redo;
             }
-	    $self->_conn_lost($sftp, "write failed");
+	    $self->_conn_lost($sftp, "write failed: " . $self->{_ssh2}->error);
 	    return undef;
 	}
-        $debug and $debug & 32 and _debug("$written bytes written to SSH channel");
+        $sftp->{_written_total} += $written;
+        if ($debug and $debug & 32) {
+            _debug("$written bytes written to SSH channel, total $sftp->{_written_total}");
+            $debug & 2048 and $written and _hexdump($$bout, 0, $written);
+        }
 	substr($$bout, 0, $written, "");
     }
 
@@ -159,7 +171,7 @@ sub _do_io {
     if ($len > 256 * 1024) {
 	$sftp->_set_status(SSH2_FX_BAD_MESSAGE);
 	$sftp->_set_error(SFTP_ERR_REMOTE_BAD_MESSAGE,
-			  "bad remote message received");
+			  "bad remote message received, len=$len");
 	return undef;
     }
     $self->_sysreadn($sftp, $len);
@@ -186,6 +198,8 @@ Net::SFTP::Foreign::Backend::Net_SSH2 - Run Net::SFTP::Foreign on top of Net::SS
   $sftp->error and
     die "Unable to stablish SFTP connection: ". $sftp->error;
 
+
+  # or...
 
   use Net::SSH2;
 
@@ -266,7 +280,7 @@ is rather limited and its performance very poor.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2009-2011 by Salvador FandiE<ntilde>o (sfandino@yahoo.com).
+Copyright (c) 2009-2012 by Salvador FandiE<ntilde>o (sfandino@yahoo.com).
 
 All rights reserved. This program is free software; you can
 redistribute it and/or modify it under the same terms as Perl itself.
