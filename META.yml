@@ -20,4 +20,4 @@ no_index:
 requires:
   Net::SFTP::Foreign: 1.67
   Net::SSH2: 0.38
-version: 0.08
+version: 0.09
